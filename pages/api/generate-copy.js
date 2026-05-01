@@ -1,6 +1,10 @@
 // pages/api/generate-copy.js
 // Secure server-side API route — Gemini key never exposed to client
 
+export const config = {
+  api: { bodyParser: { sizeLimit: '20mb' } }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 

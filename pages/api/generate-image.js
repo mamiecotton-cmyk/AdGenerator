@@ -1,6 +1,10 @@
 // pages/api/generate-image.js
 // Secure server-side image generation via Gemini
 
+export const config = {
+  api: { bodyParser: { sizeLimit: '20mb' } }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
