@@ -8,7 +8,7 @@ export const config = {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { brandDescription, images, websiteUrl, platform, count, goal, brand, apiKey, tier } = req.body;
+  const { brandDescription, images, imageRole, websiteUrl, platform, count, goal, brand, apiKey, tier } = req.body;
 
   // Determine which API key to use
   let geminiKey;
@@ -60,7 +60,11 @@ Brand voice: ${brandVoice}.
 Brand colors: ${brandColors}.${tagline ? `\nTagline: "${tagline}".` : ''}${audience ? `\nTarget audience: ${audience}.` : ''}
 
 About what they sell:
-${brandDescription}${websiteContext}${images?.length > 0 ? `\n${images.length} brand/product image(s) have been provided — incorporate visual cues from them into the ad concepts and image prompts.\n` : ''}
+${brandDescription}${websiteContext}${images?.length > 0
+  ? imageRole === 'hero'
+    ? `\n${images.length} product/brand image(s) have been uploaded to use as the HERO of the ad. The imagePrompt for each ad MUST describe recreating or closely featuring this exact product/image as the main subject. Do not invent a different product — make the uploaded item the undeniable focus.\n`
+    : `\n${images.length} brand/product image(s) have been provided for inspiration. Use their visual style, mood, colors, and aesthetic to inform the ad concepts and image prompts, but you may generate fresh visuals.\n`
+  : ''}
 Generate ${count} unique, scroll-stopping ads for ${brandName}.
 Platform: ${platform.label} (${platform.ratio}).${goal ? `\nCampaign Direction: ${goal}` : ''}
 

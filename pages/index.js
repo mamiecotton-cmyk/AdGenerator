@@ -23,6 +23,7 @@ export default function Home() {
   const [brandDescription, setBrandDescription] = useState('')
   const [websiteUrl, setWebsiteUrl] = useState('')
   const [uploadedImages, setUploadedImages] = useState([]) // [{ base64, mimeType, name }]
+  const [imageRole, setImageRole] = useState('inspiration') // 'inspiration' | 'hero'
   const [tier, setTier] = useState('free')         // 'free' | 'paid'
   const [apiKey, setApiKey] = useState('')
   const [accessCode, setAccessCode] = useState('')
@@ -103,6 +104,86 @@ export default function Home() {
     setUploadedImages(prev => prev.filter((_, i) => i !== idx))
   }
 
+  // ── Download ad as HTML ──────────────────────────────────────────────────
+  function downloadAdHTML(ad, index) {
+    const platform = PLATFORMS.find(p => p.id === selPlatform)
+    const imgSrc = ad.imageData ? `data:${ad.imageMime};base64,${ad.imageData}` : ''
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>${brand.name} — Ad ${index + 1}</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{--cream:#F5F0E8;--cream-dark:#EDE5D4;--gold:#C49A2A;--gold-light:#D4AA40;--gold-pale:#F0E0A0;--brown:#2C1A0E;--brown-mid:#5C3D1E;--brown-light:#8B6240;--text:#1E1208;--border:rgba(196,154,42,0.3);}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--cream);font-family:'Jost',sans-serif;color:var(--text);padding:32px 20px;}
+  .card{max-width:700px;margin:0 auto;background:white;border:1px solid var(--border);border-radius:6px;overflow:hidden;box-shadow:0 4px 24px rgba(44,26,14,0.08);}
+  .hdr{background:var(--brown);padding:16px 24px;display:flex;justify-content:space-between;align-items:center;}
+  .brand{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:700;color:var(--gold);}
+  .tag{font-size:9px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;padding:3px 10px;background:rgba(196,154,42,0.2);color:var(--gold-light);border-radius:100px;}
+  .img-wrap{width:100%;background:var(--cream-dark);display:flex;align-items:center;justify-content:center;min-height:200px;}
+  .img-wrap img{width:100%;display:block;}
+  .body{padding:28px;display:flex;flex-direction:column;gap:18px;}
+  .lbl{font-size:9px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:5px;display:block;}
+  .hook{font-family:'Cormorant Garamond',serif;font-size:20px;font-style:italic;font-weight:600;color:var(--brown);line-height:1.4;}
+  .pt{font-size:13px;color:var(--text);line-height:1.8;}
+  .hl{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:700;color:var(--brown);}
+  .cta{display:inline-block;background:var(--gold);color:var(--brown);font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;padding:10px 22px;border-radius:2px;}
+  .strat{background:var(--cream);border-left:3px solid var(--gold);padding:14px 16px;border-radius:0 3px 3px 0;}
+  .sr{display:flex;gap:8px;margin-bottom:4px;}
+  .sk{font-size:9px;font-weight:600;color:var(--brown-light);min-width:72px;text-transform:uppercase;letter-spacing:0.06em;padding-top:1px;}
+  .sv{font-size:11px;color:var(--text);line-height:1.5;}
+  .vp{background:var(--cream);border:1px solid var(--border);border-radius:3px;padding:14px;}
+  .vp-lbl{font-size:9px;font-weight:600;letter-spacing:0.18em;text-transform:uppercase;color:var(--gold);margin-bottom:8px;display:block;}
+  .divider{height:1px;background:var(--border);}
+  .footer{text-align:center;padding:12px;font-size:10px;color:var(--brown-light);letter-spacing:0.1em;text-transform:uppercase;border-top:1px solid var(--border);}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="hdr"><span class="brand">${brand.name}</span><span class="tag">${platform?.label || ''} · Ad ${index + 1}</span></div>
+  ${imgSrc ? `<div class="img-wrap"><img src="${imgSrc}" alt="Ad visual" /></div>` : ''}
+  <div class="body">
+    <div><span class="lbl">Hook</span><div class="hook">${ad.hook}</div></div>
+    <div class="divider"></div>
+    <div><span class="lbl">Primary Text</span><div class="pt">${ad.primaryText}</div></div>
+    <div><span class="lbl">Headline</span><div class="hl">${ad.headline}</div></div>
+    <div><span class="lbl">Call to Action</span><span class="cta">${ad.cta}</span></div>
+    <div class="divider"></div>
+    <div class="strat">
+      <span class="lbl">Campaign Strategy</span>
+      <div class="sr"><span class="sk">Audience</span><span class="sv">${ad.strategy?.audience || ''}</span></div>
+      <div class="sr"><span class="sk">Angle</span><span class="sv">${ad.strategy?.angle || ''}</span></div>
+      <div class="sr"><span class="sk">Purpose</span><span class="sv">${ad.strategy?.purpose || ''}</span></div>
+      <div class="sr"><span class="sk">Best Time</span><span class="sv">${ad.strategy?.bestTime || ''}</span></div>
+      <div class="sr"><span class="sk">Why Works</span><span class="sv">${ad.strategy?.whyItWorks || ''}</span></div>
+    </div>
+    <div class="divider"></div>
+    <div class="vp">
+      <span class="vp-lbl">🎬 Video / Reel Prompt</span>
+      <div class="sr"><span class="sk">Camera</span><span class="sv">${ad.video?.camera || ''}</span></div>
+      <div class="sr"><span class="sk">Angle</span><span class="sv">${ad.video?.angle || ''}</span></div>
+      <div class="sr"><span class="sk">Lighting</span><span class="sv">${ad.video?.lighting || ''}</span></div>
+      <div class="sr"><span class="sk">Mood</span><span class="sv">${ad.video?.mood || ''}</span></div>
+      ${ad.video?.dialogue ? `<div class="sr"><span class="sk">Dialogue</span><span class="sv">“${ad.video.dialogue}”</span></div>` : ''}
+      <div class="sr"><span class="sk">Action</span><span class="sv">${ad.video?.action || ''}</span></div>
+    </div>
+  </div>
+  <div class="footer">Generated by Ad Generator · ${brand.name}</div>
+</div>
+</body>
+</html>`
+    const blob = new Blob([html], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${brand.name.replace(/\s+/g, '-')}-ad-${index + 1}.html`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   // ── Generate ─────────────────────────────────────────────────────────────
   async function generate() {
     if (!selPlatform) return setError('Please select a platform.')
@@ -120,6 +201,7 @@ export default function Home() {
           brandDescription,
           websiteUrl,
           images: uploadedImages.map(img => ({ base64: img.base64, mimeType: img.mimeType })),
+          imageRole,
           platform,
           count: adCount,
           goal,
@@ -504,6 +586,21 @@ export default function Home() {
                 <textarea value={goal} onChange={e => setGoal(e.target.value)} placeholder="e.g. 'Focus on new moms who need a moment to themselves' or 'Push the holiday gift angle'" />
               </div>
 
+              {uploadedImages.length > 0 && (
+                <div style={{marginBottom:'16px'}}>
+                  <label style={{fontSize:'9px',fontWeight:600,letterSpacing:'0.2em',textTransform:'uppercase',color:'var(--brown-mid)',display:'block',marginBottom:'8px'}}>Uploaded Images — Role</label>
+                  <div style={{display:'flex',gap:'8px'}}>
+                    <button className={`tier-btn${imageRole==='inspiration'?' sel':''}`} style={{padding:'10px'}} onClick={() => setImageRole('inspiration')}>
+                      Inspiration Only
+                    </button>
+                    <button className={`tier-btn${imageRole==='hero'?' sel':''}`} style={{padding:'10px'}} onClick={() => setImageRole('hero')}>
+                      Hero of the Ad
+                    </button>
+                  </div>
+                  <span className="hint" style={{marginTop:'6px',display:'block'}}>{imageRole === 'hero' ? 'The generated image will closely replicate and feature your uploaded photo as the main visual.' : 'Your photos guide the style and mood but the AI generates a fresh image.'}</span>
+                </div>
+              )}
+
               {error && <div className="error-box">{error}</div>}
 
               <button className="btn-pri" disabled={generating} onClick={generate}>
@@ -527,6 +624,10 @@ export default function Home() {
                     <div className="ac-num">Ad {i+1} of {ads.length}</div>
                     <div className="tags">
                       {platform && <span className="tag">{platform.label}</span>}
+                      <button
+                        onClick={() => downloadAdHTML(ad, i)}
+                        style={{fontSize:'9px',fontWeight:600,letterSpacing:'0.12em',textTransform:'uppercase',padding:'3px 10px',background:'rgba(196,154,42,0.15)',color:'var(--gold-light)',border:'1px solid rgba(196,154,42,0.3)',borderRadius:'100px',cursor:'pointer',transition:'all 0.2s'}}
+                      >↓ Download HTML</button>
                     </div>
                   </div>
                   <div className="ac-body">
