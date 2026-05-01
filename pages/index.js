@@ -184,6 +184,35 @@ export default function Home() {
     URL.revokeObjectURL(url)
   }
 
+  // ── Download ad as PDF ─────────────────────────────────────────────────────
+  async function downloadAdPDF(ad, index) {
+    const { default: html2canvas } = await import('html2canvas')
+    const { default: jsPDF } = await import('jspdf')
+    const el = document.getElementById(`ad-card-${index}`)
+    if (!el) return
+    const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
+    const imgData = canvas.toDataURL('image/jpeg', 0.95)
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
+    const pageW = pdf.internal.pageSize.getWidth()
+    const pageH = pdf.internal.pageSize.getHeight()
+    const ratio = canvas.height / canvas.width
+    const imgH = Math.min(pageW * ratio, pageH - 40)
+    pdf.addImage(imgData, 'JPEG', 20, 20, pageW - 40, imgH)
+    pdf.save(`${brand.name.replace(/\s+/g, '-')}-ad-${index + 1}.pdf`)
+  }
+
+  // ── Download ad as PNG ─────────────────────────────────────────────────────
+  async function downloadAdPNG(ad, index) {
+    const { default: html2canvas } = await import('html2canvas')
+    const el = document.getElementById(`ad-card-${index}`)
+    if (!el) return
+    const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
+    const a = document.createElement('a')
+    a.href = canvas.toDataURL('image/png')
+    a.download = `${brand.name.replace(/\s+/g, '-')}-ad-${index + 1}.png`
+    a.click()
+  }
+
   // ── Generate ─────────────────────────────────────────────────────────────
   async function generate() {
     if (!selPlatform) return setError('Please select a platform.')
@@ -386,6 +415,10 @@ export default function Home() {
         .modal{background:white;border-radius:6px;padding:28px;width:90%;max-width:440px;border:1px solid var(--border);}
         .modal h3{font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--brown);margin-bottom:16px;}
         .modal-actions{display:flex;gap:10px;margin-top:4px;}
+
+        /* Export buttons */
+        .export-btn{font-size:9px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;padding:3px 9px;background:rgba(196,154,42,0.15);color:var(--gold-light);border:1px solid rgba(196,154,42,0.3);border-radius:100px;cursor:pointer;transition:all 0.2s;white-space:nowrap;}
+        .export-btn:hover{background:rgba(196,154,42,0.3);color:var(--gold-pale);}
 
         /* Hint */
         .hint{font-size:10px;color:var(--brown-light);line-height:1.5;margin-top:4px;}
@@ -619,15 +652,14 @@ export default function Home() {
             {ads.map((ad, i) => {
               const platform = PLATFORMS.find(p => p.id === selPlatform)
               return (
-                <div key={i} className="ad-card" style={{animationDelay:`${i*0.08}s`}}>
+                <div key={i} id={`ad-card-${i}`} className="ad-card" style={{animationDelay:`${i*0.08}s`}}>
                   <div className="ac-hdr">
                     <div className="ac-num">Ad {i+1} of {ads.length}</div>
-                    <div className="tags">
+                    <div style={{display:'flex',alignItems:'center',gap:'6px'}}>
                       {platform && <span className="tag">{platform.label}</span>}
-                      <button
-                        onClick={() => downloadAdHTML(ad, i)}
-                        style={{fontSize:'9px',fontWeight:600,letterSpacing:'0.12em',textTransform:'uppercase',padding:'3px 10px',background:'rgba(196,154,42,0.15)',color:'var(--gold-light)',border:'1px solid rgba(196,154,42,0.3)',borderRadius:'100px',cursor:'pointer',transition:'all 0.2s'}}
-                      >↓ Download HTML</button>
+                      <button className="export-btn" onClick={() => downloadAdPDF(ad, i)}>↓ PDF</button>
+                      <button className="export-btn" onClick={() => downloadAdPNG(ad, i)}>↓ PNG</button>
+                      <button className="export-btn" onClick={() => downloadAdHTML(ad, i)}>↓ HTML</button>
                     </div>
                   </div>
                   <div className="ac-body">
