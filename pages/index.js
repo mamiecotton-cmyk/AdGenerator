@@ -22,7 +22,7 @@ export default function Home() {
   const [brand, setBrand] = useState(EMPTY_BRAND)
   const [brandDescription, setBrandDescription] = useState('')
   const [websiteUrl, setWebsiteUrl] = useState('')
-  const [uploadedImage, setUploadedImage] = useState({ base64: '', mimeType: '' })
+  const [uploadedImages, setUploadedImages] = useState([]) // [{ base64, mimeType, name }]
   const [tier, setTier] = useState('free')         // 'free' | 'paid'
   const [apiKey, setApiKey] = useState('')
   const [accessCode, setAccessCode] = useState('')
@@ -73,14 +73,22 @@ export default function Home() {
 
   // ── Handle image upload ──────────────────────────────────────────────────
   function handleImageUpload(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = ev => {
-      const base64 = ev.target.result.split(',')[1]
-      setUploadedImage({ base64, mimeType: file.type })
-    }
-    reader.readAsDataURL(file)
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    files.forEach(file => {
+      const reader = new FileReader()
+      reader.onload = ev => {
+        const base64 = ev.target.result.split(',')[1]
+        setUploadedImages(prev => [...prev, { base64, mimeType: file.type, name: file.name }])
+      }
+      reader.readAsDataURL(file)
+    })
+    // Reset input so same file can be re-added if needed
+    e.target.value = ''
+  }
+
+  function removeImage(idx) {
+    setUploadedImages(prev => prev.filter((_, i) => i !== idx))
   }
 
   // ── Generate ─────────────────────────────────────────────────────────────
@@ -99,8 +107,7 @@ export default function Home() {
         body: JSON.stringify({
           brandDescription,
           websiteUrl,
-          imageBase64: uploadedImage.base64,
-          imageMimeType: uploadedImage.mimeType,
+          images: uploadedImages.map(img => ({ base64: img.base64, mimeType: img.mimeType })),
           platform,
           count: adCount,
           goal,
@@ -387,18 +394,21 @@ export default function Home() {
                 </div>
                 <div>
                   <label style={{fontSize:'9px',fontWeight:600,letterSpacing:'0.2em',textTransform:'uppercase',color:'var(--brown-mid)',display:'block',marginBottom:'8px'}}>Brand / Product Image (optional)</label>
-                  <input ref={fileInputRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleImageUpload} />
-                  {uploadedImage.base64 ? (
-                    <div style={{textAlign:'center'}}>
-                      <img src={`data:${uploadedImage.mimeType};base64,${uploadedImage.base64}`} alt="Uploaded" style={{maxHeight:'160px',objectFit:'contain',borderRadius:'3px',display:'block',margin:'0 auto 8px'}} />
-                      <button style={{fontSize:'10px',color:'var(--gold)',background:'none',border:'none',cursor:'pointer',textDecoration:'underline'}} onClick={() => setUploadedImage({ base64: '', mimeType: '' })}>Remove image</button>
-                    </div>
-                  ) : (
-                    <div style={{border:'1.5px dashed var(--border)',borderRadius:'4px',padding:'20px',textAlign:'center',cursor:'pointer',background:'var(--cream)',transition:'border-color 0.2s'}} onClick={() => fileInputRef.current?.click()}>
-                      <span style={{fontSize:'11px',color:'var(--brown-mid)',display:'block',marginBottom:'4px'}}>Click to upload a product or brand photo</span>
-                      <span style={{fontSize:'10px',color:'var(--brown-light)'}}>JPG, PNG, WEBP — guides ad visuals</span>
+                  <input ref={fileInputRef} type="file" accept="image/*" multiple style={{display:'none'}} onChange={handleImageUpload} />
+                  {uploadedImages.length > 0 && (
+                    <div style={{display:'flex',flexWrap:'wrap',gap:'8px',marginBottom:'10px'}}>
+                      {uploadedImages.map((img, idx) => (
+                        <div key={idx} style={{position:'relative',display:'inline-block'}}>
+                          <img src={`data:${img.mimeType};base64,${img.base64}`} alt={img.name} style={{height:'80px',width:'80px',objectFit:'cover',borderRadius:'3px',border:'1px solid var(--border)',display:'block'}} />
+                          <button onClick={() => removeImage(idx)} style={{position:'absolute',top:'-6px',right:'-6px',width:'18px',height:'18px',borderRadius:'50%',background:'var(--brown)',color:'var(--gold)',border:'none',cursor:'pointer',fontSize:'11px',lineHeight:'1',display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
+                        </div>
+                      ))}
                     </div>
                   )}
+                  <div style={{border:'1.5px dashed var(--border)',borderRadius:'4px',padding:'14px',textAlign:'center',cursor:'pointer',background:'var(--cream)',transition:'border-color 0.2s'}} onClick={() => fileInputRef.current?.click()}>
+                    <span style={{fontSize:'11px',color:'var(--brown-mid)',display:'block',marginBottom:'2px'}}>{uploadedImages.length > 0 ? '+ Add more images' : 'Click to upload product or brand photos'}</span>
+                    <span style={{fontSize:'10px',color:'var(--brown-light)'}}>JPG, PNG, WEBP · Multiple allowed</span>
+                  </div>
                 </div>
               </div>
             </div>

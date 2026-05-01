@@ -8,7 +8,7 @@ export const config = {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { brandDescription, imageBase64, imageMimeType, websiteUrl, platform, count, goal, brand, apiKey, tier } = req.body;
+  const { brandDescription, images, websiteUrl, platform, count, goal, brand, apiKey, tier } = req.body;
 
   // Determine which API key to use
   let geminiKey;
@@ -60,7 +60,7 @@ Brand voice: ${brandVoice}.
 Brand colors: ${brandColors}.${tagline ? `\nTagline: "${tagline}".` : ''}${audience ? `\nTarget audience: ${audience}.` : ''}
 
 About what they sell:
-${brandDescription}${websiteContext}${imageBase64 ? '\nA brand/product image has been provided — incorporate visual cues from it into the ad concepts and image prompts.\n' : ''}
+${brandDescription}${websiteContext}${images?.length > 0 ? `\n${images.length} brand/product image(s) have been provided — incorporate visual cues from them into the ad concepts and image prompts.\n` : ''}
 Generate ${count} unique, scroll-stopping ads for ${brandName}.
 Platform: ${platform.label} (${platform.ratio}).${goal ? `\nCampaign Direction: ${goal}` : ''}
 
@@ -99,10 +99,14 @@ Return ONLY a valid JSON array (no markdown, no explanation):
 ]`;
 
   try {
-    // Build content parts — prepend image if provided (multimodal)
+    // Build content parts — prepend images if provided (multimodal)
     const parts = [];
-    if (imageBase64 && imageMimeType) {
-      parts.push({ inlineData: { mimeType: imageMimeType, data: imageBase64 } });
+    if (Array.isArray(images) && images.length > 0) {
+      images.forEach(img => {
+        if (img.base64 && img.mimeType) {
+          parts.push({ inlineData: { mimeType: img.mimeType, data: img.base64 } });
+        }
+      });
     }
     parts.push({ text: prompt });
 
