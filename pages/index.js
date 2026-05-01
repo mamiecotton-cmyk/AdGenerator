@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Head from 'next/head'
 
 // ── Default empty brand ─────────────────────────────────────────────────────
@@ -20,30 +20,32 @@ export default function Home() {
   // ── State ────────────────────────────────────────────────────────────────
   const [screen, setScreen] = useState('setup')   // 'setup' | 'generator'
   const [brand, setBrand] = useState(EMPTY_BRAND)
-  const [products, setProducts] = useState([])
+  const [brandDescription, setBrandDescription] = useState('')
+  const [websiteUrl, setWebsiteUrl] = useState('')
+  const [uploadedImage, setUploadedImage] = useState({ base64: '', mimeType: '' })
   const [tier, setTier] = useState('free')         // 'free' | 'paid'
   const [apiKey, setApiKey] = useState('')
   const [accessCode, setAccessCode] = useState('')
-  const [selProduct, setSelProduct] = useState(null)
   const [selPlatform, setSelPlatform] = useState(null)
   const [adCount, setAdCount] = useState(3)
   const [goal, setGoal] = useState('')
   const [generating, setGenerating] = useState(false)
   const [ads, setAds] = useState([])
   const [error, setError] = useState('')
-  const [showAddProduct, setShowAddProduct] = useState(false)
-  const [newProduct, setNewProduct] = useState({ name:'', affirmation:'', notes:'', type:'', mood:'' })
   const [setupErrors, setSetupErrors] = useState({})
+  const fileInputRef = useRef(null)
 
   // ── Load saved brand from localStorage ──────────────────────────────────
   useEffect(() => {
     try {
       const saved = localStorage.getItem('adgen_brand')
-      const savedProducts = localStorage.getItem('adgen_products')
+      const savedDesc = localStorage.getItem('adgen_description')
+      const savedUrl = localStorage.getItem('adgen_websiteUrl')
       const savedTier = localStorage.getItem('adgen_tier')
       const savedKey = localStorage.getItem('adgen_key')
       if (saved) { setBrand(JSON.parse(saved)); setScreen('generator') }
-      if (savedProducts) setProducts(JSON.parse(savedProducts))
+      if (savedDesc) setBrandDescription(savedDesc)
+      if (savedUrl) setWebsiteUrl(savedUrl)
       if (savedTier) setTier(savedTier)
       if (savedKey) setApiKey(savedKey)
     } catch(e) {}
@@ -56,54 +58,57 @@ export default function Home() {
     if (!brand.industry.trim()) errs.industry = 'Required'
     if (!brand.voice.trim()) errs.voice = 'Required'
     if (!brand.colors.trim()) errs.colors = 'Required'
+    if (!brandDescription.trim()) errs.description = 'Required'
     if (tier === 'free' && !apiKey.trim()) errs.apiKey = 'Required for free tier'
-    if (setSetupErrors) setSetupErrors(errs)
+    setSetupErrors(errs)
     if (Object.keys(errs).length) return
 
     localStorage.setItem('adgen_brand', JSON.stringify(brand))
-    localStorage.setItem('adgen_products', JSON.stringify(products))
+    localStorage.setItem('adgen_description', brandDescription)
+    localStorage.setItem('adgen_websiteUrl', websiteUrl)
     localStorage.setItem('adgen_tier', tier)
     if (tier === 'free') localStorage.setItem('adgen_key', apiKey)
     setScreen('generator')
   }
 
-  // ── Add product ──────────────────────────────────────────────────────────
-  function addProduct() {
-    if (!newProduct.name.trim() || !newProduct.affirmation.trim()) {
-      alert('Please enter at least a name and core message.')
-      return
+  // ── Handle image upload ──────────────────────────────────────────────────
+  function handleImageUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const base64 = ev.target.result.split(',')[1]
+      setUploadedImage({ base64, mimeType: file.type })
     }
-    const updated = [...products, { ...newProduct, id: 'p-' + Date.now() }]
-    setProducts(updated)
-    localStorage.setItem('adgen_products', JSON.stringify(updated))
-    setNewProduct({ name:'', affirmation:'', notes:'', type:'', mood:'' })
-    setShowAddProduct(false)
-    setSelProduct(updated[updated.length - 1].id)
-  }
-
-  function removeProduct(id) {
-    const updated = products.filter(p => p.id !== id)
-    setProducts(updated)
-    localStorage.setItem('adgen_products', JSON.stringify(updated))
-    if (selProduct === id) setSelProduct(null)
+    reader.readAsDataURL(file)
   }
 
   // ── Generate ─────────────────────────────────────────────────────────────
   async function generate() {
-    if (!selProduct) return setError('Please select a product or service.')
     if (!selPlatform) return setError('Please select a platform.')
     setError('')
     setGenerating(true)
     setAds([])
 
-    const product = products.find(p => p.id === selProduct)
     const platform = PLATFORMS.find(p => p.id === selPlatform)
 
     try {
       const res = await fetch('/api/generate-copy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ blend: product, platform, count: adCount, goal, brand, apiKey, tier, accessCode })
+        body: JSON.stringify({
+          brandDescription,
+          websiteUrl,
+          imageBase64: uploadedImage.base64,
+          imageMimeType: uploadedImage.mimeType,
+          platform,
+          count: adCount,
+          goal,
+          brand,
+          apiKey,
+          tier,
+          accessCode
+        })
       })
       const data = await res.json()
       if (data.error) { setError(data.error); setGenerating(false); return }
@@ -353,22 +358,47 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Products */}
+            {/* What You Offer */}
             <div className="panel">
-              <div className="panel-title">Products & Services</div>
-              <p className="hint" style={{marginBottom:'16px'}}>Add each product, service, or offer you want to create ads for.</p>
+              <div className="panel-title">What You Offer</div>
+              <p className="hint" style={{marginBottom:'20px'}}>Describe what you sell. Optionally upload a brand or product photo, or paste your website URL — we'll pull context from them automatically.</p>
 
-              <div className="prod-grid">
-                {products.map(p => (
-                  <div key={p.id} className="prod-card">
-                    <button className="pc-del" onClick={() => removeProduct(p.id)}>×</button>
-                    <div className="pc-name">{p.name}</div>
-                    <div className="pc-msg">{p.affirmation}</div>
-                  </div>
-                ))}
-                <div className="prod-card add-card" onClick={() => setShowAddProduct(true)}>
-                  <div className="plus">+</div>
-                  <div className="al">Add Product</div>
+              <div className="field">
+                <label>Describe Your Offerings *</label>
+                <textarea
+                  className={setupErrors.description ? 'field-err' : ''}
+                  value={brandDescription}
+                  onChange={e => setBrandDescription(e.target.value)}
+                  placeholder="e.g. We sell handmade soy candles in calming scents like lavender, vanilla, and sandalwood. Each candle is hand-poured in small batches and burns for 50+ hours. Perfect for self-care rituals, gifts, and creating a peaceful home atmosphere."
+                  style={{minHeight:'100px'}}
+                />
+                {setupErrors.description && <span className="err-msg">{setupErrors.description}</span>}
+              </div>
+
+              <div className="grid2">
+                <div className="field">
+                  <label>Website URL (optional)</label>
+                  <input
+                    value={websiteUrl}
+                    onChange={e => setWebsiteUrl(e.target.value)}
+                    placeholder="https://yourstore.com"
+                  />
+                  <span className="hint">We'll read your site to pull in additional product and brand context.</span>
+                </div>
+                <div>
+                  <label style={{fontSize:'9px',fontWeight:600,letterSpacing:'0.2em',textTransform:'uppercase',color:'var(--brown-mid)',display:'block',marginBottom:'8px'}}>Brand / Product Image (optional)</label>
+                  <input ref={fileInputRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleImageUpload} />
+                  {uploadedImage.base64 ? (
+                    <div style={{textAlign:'center'}}>
+                      <img src={`data:${uploadedImage.mimeType};base64,${uploadedImage.base64}`} alt="Uploaded" style={{maxHeight:'160px',objectFit:'contain',borderRadius:'3px',display:'block',margin:'0 auto 8px'}} />
+                      <button style={{fontSize:'10px',color:'var(--gold)',background:'none',border:'none',cursor:'pointer',textDecoration:'underline'}} onClick={() => setUploadedImage({ base64: '', mimeType: '' })}>Remove image</button>
+                    </div>
+                  ) : (
+                    <div style={{border:'1.5px dashed var(--border)',borderRadius:'4px',padding:'20px',textAlign:'center',cursor:'pointer',background:'var(--cream)',transition:'border-color 0.2s'}} onClick={() => fileInputRef.current?.click()}>
+                      <span style={{fontSize:'11px',color:'var(--brown-mid)',display:'block',marginBottom:'4px'}}>Click to upload a product or brand photo</span>
+                      <span style={{fontSize:'10px',color:'var(--brown-light)'}}>JPG, PNG, WEBP — guides ad visuals</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -428,31 +458,6 @@ export default function Home() {
             <div className="panel">
               <div className="panel-title">Build Your Campaign</div>
 
-              {/* Products */}
-              <div style={{marginBottom:'20px'}}>
-                <label style={{fontSize:'9px',fontWeight:600,letterSpacing:'0.2em',textTransform:'uppercase',color:'var(--brown-mid)',display:'block',marginBottom:'10px'}}>
-                  Select Product or Service
-                </label>
-                {products.length === 0 ? (
-                  <div style={{color:'var(--brown-light)',fontSize:'12px',padding:'12px 0'}}>
-                    No products added yet. <button style={{color:'var(--gold)',background:'none',border:'none',cursor:'pointer',fontSize:'12px',textDecoration:'underline'}} onClick={() => setScreen('setup')}>Go to setup →</button>
-                  </div>
-                ) : (
-                  <div className="prod-grid">
-                    {products.map(p => (
-                      <div key={p.id} className={`prod-card${selProduct===p.id?' sel':''}`} onClick={() => setSelProduct(p.id)}>
-                        <div className="pc-name">{p.name}</div>
-                        <div className="pc-msg">{p.affirmation}</div>
-                      </div>
-                    ))}
-                    <div className="prod-card add-card" onClick={() => { setScreen('setup'); setShowAddProduct(true); }}>
-                      <div className="plus">+</div>
-                      <div className="al">Add</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
               <div className="gen-grid">
                 <div>
                   <label style={{fontSize:'9px',fontWeight:600,letterSpacing:'0.2em',textTransform:'uppercase',color:'var(--brown-mid)',display:'block',marginBottom:'10px'}}>Platform</label>
@@ -493,14 +498,12 @@ export default function Home() {
             )}
 
             {ads.map((ad, i) => {
-              const product = products.find(p => p.id === selProduct)
               const platform = PLATFORMS.find(p => p.id === selPlatform)
               return (
                 <div key={i} className="ad-card" style={{animationDelay:`${i*0.08}s`}}>
                   <div className="ac-hdr">
                     <div className="ac-num">Ad {i+1} of {ads.length}</div>
                     <div className="tags">
-                      {product && <span className="tag">{product.name}</span>}
                       {platform && <span className="tag">{platform.label}</span>}
                     </div>
                   </div>
@@ -514,14 +517,12 @@ export default function Home() {
                             <span>Generating image...</span>
                           </div>
                         ) : ad.imageData ? (
-                          <img src={`data:${ad.imageMime};base64,${ad.imageData}`} alt={product?.name} />
+                          <img src={`data:${ad.imageMime};base64,${ad.imageData}`} alt={brand.name} />
                         ) : (
                           <div className="img-fallback">
                             <div className="fi-icon">✦</div>
-                            <div className="fi-name">{product?.name}</div>
-                            <div className="fi-aff">"{product?.affirmation}"</div>
+                            <div className="fi-name">{brand.name}</div>
                             <div className="fi-div"></div>
-                            <div className="fi-notes">{product?.notes}</div>
                           </div>
                         )}
                       </div>
@@ -559,21 +560,6 @@ export default function Home() {
         )}
       </div>
 
-      {/* Add Product Modal */}
-      <div className={`modal-overlay${showAddProduct?' open':''}`}>
-        <div className="modal">
-          <h3>Add Product or Service</h3>
-          <div className="field"><label>Name *</label><input value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} placeholder="e.g. Lavender Dreams Candle" /></div>
-          <div className="field"><label>Core Message or Tagline *</label><input value={newProduct.affirmation} onChange={e => setNewProduct({...newProduct, affirmation: e.target.value})} placeholder="e.g. You deserve peace." /></div>
-          <div className="field"><label>Details / Features</label><input value={newProduct.notes} onChange={e => setNewProduct({...newProduct, notes: e.target.value})} placeholder="e.g. Soy wax, 50hr burn, lavender & vanilla" /></div>
-          <div className="field"><label>Product Type</label><input value={newProduct.type} onChange={e => setNewProduct({...newProduct, type: e.target.value})} placeholder="e.g. 8oz candle" /></div>
-          <div className="field"><label>Visual Mood</label><input value={newProduct.mood} onChange={e => setNewProduct({...newProduct, mood: e.target.value})} placeholder="e.g. soft, serene, cozy, luxurious" /></div>
-          <div className="modal-actions">
-            <button className="btn-sec" onClick={() => setShowAddProduct(false)}>Cancel</button>
-            <button className="btn-pri" style={{marginTop:0,flex:1}} onClick={addProduct}>Add Product</button>
-          </div>
-        </div>
-      </div>
     </>
   )
 }

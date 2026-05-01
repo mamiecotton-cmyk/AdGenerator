@@ -4,19 +4,17 @@
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { blend, platform, count, goal, brand, apiKey, tier } = req.body;
+  const { brandDescription, imageBase64, imageMimeType, websiteUrl, platform, count, goal, brand, apiKey, tier } = req.body;
 
   // Determine which API key to use
   let geminiKey;
   if (tier === 'paid') {
-    // Validate access code before using server key
     const { accessCode } = req.body;
     if (accessCode !== process.env.PAID_ACCESS_CODE) {
       return res.status(401).json({ error: 'Invalid access code.' });
     }
     geminiKey = process.env.GEMINI_API_KEY;
   } else {
-    // Free tier — use customer's own key
     geminiKey = apiKey;
   }
 
@@ -26,25 +24,49 @@ export default async function handler(req, res) {
   const brandColors = brand.colors || 'your brand colors';
   const brandName = brand.name || 'this brand';
   const industry = brand.industry || 'lifestyle product';
+  const tagline = brand.tagline || '';
+  const audience = brand.audience || '';
 
-  const prompt = `You are a creative director and copywriter for ${brandName}, a ${industry} brand. Brand voice: ${brandVoice}. Brand colors: ${brandColors}.
+  // ── Optionally scrape website for context ────────────────────────────────
+  let websiteContext = '';
+  if (websiteUrl && websiteUrl.trim()) {
+    try {
+      const siteRes = await fetch(websiteUrl.trim(), {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; AdGenerator/1.0)' },
+        signal: AbortSignal.timeout(6000)
+      });
+      const html = await siteRes.text();
+      const text = html
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 2000);
+      if (text.length > 100) {
+        websiteContext = `\nWebsite content scraped from ${websiteUrl}:\n${text}\n`;
+      }
+    } catch(e) {
+      // Website context is optional — silently skip on error
+    }
+  }
 
-Generate ${count} unique, scroll-stopping ads for:
-- Product/Service: ${blend.name}
-- Core Message: "${blend.affirmation}"
-- Details: ${blend.notes}
-- Type: ${blend.type}
-- Platform: ${platform.label} (${platform.ratio})
-- Mood: ${blend.mood}
-${goal ? `- Campaign Direction: ${goal}` : ''}
+  const prompt = `You are a creative director and copywriter for ${brandName}, a ${industry} brand.
+Brand voice: ${brandVoice}.
+Brand colors: ${brandColors}.${tagline ? `\nTagline: "${tagline}".` : ''}${audience ? `\nTarget audience: ${audience}.` : ''}
+
+About what they sell:
+${brandDescription}${websiteContext}${imageBase64 ? '\nA brand/product image has been provided — incorporate visual cues from it into the ad concepts and image prompts.\n' : ''}
+Generate ${count} unique, scroll-stopping ads for ${brandName}.
+Platform: ${platform.label} (${platform.ratio}).${goal ? `\nCampaign Direction: ${goal}` : ''}
 
 RULES:
 - Each ad must feel completely different — different angle, emotion, audience segment
 - Hooks must be bold, natural, human — no generic AI phrasing
 - Write in the brand's voice — ${brandVoice}
-- The core message should feel woven in, not forced
 - Video prompts must be specific enough to actually shoot
 - Vary the creative angle: identity, desire, problem/solution, lifestyle, social proof, urgency
+- Image prompts must match brand colors: ${brandColors}
 
 Return ONLY a valid JSON array (no markdown, no explanation):
 [
@@ -73,13 +95,20 @@ Return ONLY a valid JSON array (no markdown, no explanation):
 ]`;
 
   try {
+    // Build content parts — prepend image if provided (multimodal)
+    const parts = [];
+    if (imageBase64 && imageMimeType) {
+      parts.push({ inlineData: { mimeType: imageMimeType, data: imageBase64 } });
+    }
+    parts.push({ text: prompt });
+
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${geminiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [{ parts }],
           generationConfig: { temperature: 0.9, maxOutputTokens: 8192 }
         })
       }
