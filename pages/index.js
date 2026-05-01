@@ -78,12 +78,24 @@ export default function Home() {
     files.forEach(file => {
       const reader = new FileReader()
       reader.onload = ev => {
-        const base64 = ev.target.result.split(',')[1]
-        setUploadedImages(prev => [...prev, { base64, mimeType: file.type, name: file.name }])
+        const img = new Image()
+        img.onload = () => {
+          // Resize to max 800px on longest side, output as JPEG at 0.75 quality
+          const MAX = 800
+          const scale = Math.min(1, MAX / Math.max(img.width, img.height))
+          const w = Math.round(img.width * scale)
+          const h = Math.round(img.height * scale)
+          const canvas = document.createElement('canvas')
+          canvas.width = w
+          canvas.height = h
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h)
+          const base64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1]
+          setUploadedImages(prev => [...prev, { base64, mimeType: 'image/jpeg', name: file.name }])
+        }
+        img.src = ev.target.result
       }
       reader.readAsDataURL(file)
     })
-    // Reset input so same file can be re-added if needed
     e.target.value = ''
   }
 
