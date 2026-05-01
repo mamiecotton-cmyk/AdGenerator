@@ -1,0 +1,33 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --cream: #F5F0E8;
+  --cream-dark: #EDE5D4;
+  --gold: #C49A2A;
+  --gold-light: #D4AA40;
+  --gold-pale: #F0E0A0;
+  --brown: #2C1A0E;
+  --brown-mid: #5C3D1E;
+  --brown-light: #8B6240;
+  --text: #1E1208;
+  --border: rgba(196,154,42,0.3);
+  --white: #ffffff;
+  --error: #8B3A1A;
+  --error-bg: #fff8f5;
+  --error-border: #ffcbb0;
+}
+
+html, body {
+  height: 100%;
+  font-family: 'Jost', sans-serif;
+  background: var(--cream);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+a { color: inherit; text-decoration: none; }
+button { cursor: pointer; font-family: inherit; }
+input, textarea, select { font-family: inherit; }
+
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Jost:wght@300;400;500;600&display=swap');
